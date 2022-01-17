@@ -55,7 +55,7 @@ class Google extends OAuth2
     /**
      * {@inheritdoc}
      */
-    protected $apiBaseUrl = 'https://www.googleapis.com/';
+    protected $apiBaseUrl = 'https://people.googleapis.com/';
 
     /**
      * {@inheritdoc}
@@ -98,27 +98,32 @@ class Google extends OAuth2
      */
     public function getUserProfile()
     {
-        $response = $this->apiRequest('oauth2/v3/userinfo');
+        $parameters = [
+            'personFields' => 'names,emailAddresses,birthdays,coverPhotos,locales,phoneNumbers'
+        ];
+
+        $response = $this->apiRequest('v1/people/me', 'GET', $parameters);
 
         $data = new Data\Collection($response);
 
-        if (!$data->exists('sub')) {
+        if (empty($response->resourceName)) {
             throw new UnexpectedApiResponseException('Provider API returned an unexpected response.');
         }
 
         $userProfile = new User\Profile();
 
-        $userProfile->identifier = $data->get('sub');
-        $userProfile->firstName = $data->get('given_name');
-        $userProfile->lastName = $data->get('family_name');
-        $userProfile->displayName = $data->get('name');
-        $userProfile->photoURL = $data->get('picture');
-        $userProfile->profileURL = $data->get('profile');
-        $userProfile->gender = $data->get('gender');
-        $userProfile->language = $data->get('locale');
-        $userProfile->email = $data->get('email');
-
-        $userProfile->emailVerified = $data->get('email_verified') ? $userProfile->email : '';
+        $userProfile->identifier = $response->names[0]->metadata->source->id;
+        $userProfile->firstName = $response->names[0]->givenName;
+        $userProfile->lastName = $response->names[0]->familyName;
+        $userProfile->displayName = $response->names[0]->displayName;
+        $userProfile->photoURL = $response->coverPhotos[0]->url;
+        $userProfile->language = $response->locales[0]->value;
+        $userProfile->email = $response->emailAddresses[0]->value;
+        $userProfile->emailVerified = $response->emailAddresses[0]->metadata->verified ? $userProfile->email : '';
+        $userProfile->birthDay = $response->birthdays[0]->date->day;
+        $userProfile->birthMonth = $response->birthdays[0]->date->month;
+        $userProfile->birthYear = $response->birthdays[0]->date->year;
+        $userProfile->phone = $response->phoneNumbers[0]->value;
 
         if ($this->config->get('photo_size')) {
             $userProfile->photoURL .= '?sz=' . $this->config->get('photo_size');
