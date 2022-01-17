@@ -120,10 +120,18 @@ class Google extends OAuth2
         $userProfile->language = $response->locales[0]->value;
         $userProfile->email = $response->emailAddresses[0]->value;
         $userProfile->emailVerified = $response->emailAddresses[0]->metadata->verified ? $userProfile->email : '';
-        $userProfile->birthDay = $response->birthdays[0]->date->day;
-        $userProfile->birthMonth = $response->birthdays[0]->date->month;
-        $userProfile->birthYear = $response->birthdays[0]->date->year;
-        $userProfile->phone = $response->phoneNumbers[0]->value;
+        
+        if (!empty($response->birthdays[0]->date)) {
+            $birthday = new Data\Collection($response->birthdays[0]->date);
+
+            $userProfile->birthDay = $birthday->get('day');
+            $userProfile->birthMonth = $birthday->get('month');
+            $userProfile->birthYear = $birthday->get('year');
+        }
+
+        if (!empty($response->phoneNumbers[0]->value)) {
+            $userProfile->phone = $response->phoneNumbers[0]->value;
+        }
 
         if ($this->config->get('photo_size')) {
             $userProfile->photoURL .= '?sz=' . $this->config->get('photo_size');
